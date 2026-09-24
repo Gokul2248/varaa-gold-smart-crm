@@ -59,3 +59,6 @@ Cloudflare build pipeline check: GitHub integration is configured for the `main`
 ├── .gitignore
 └── README.md
 ```
+
+
+Admin password rotation deployment check.
