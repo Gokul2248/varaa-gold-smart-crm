@@ -13,7 +13,7 @@ function setup() {
   if (!ss) { ss = SpreadsheetApp.create('Varaa Gold Smart Visitor CRM'); props.setProperty(PROP_SHEET_ID, ss.getId()); }
   let sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) sh = ss.insertSheet(SHEET_NAME);
-  if (sh.getLastRow() === 0) sh.appendRow(['Timestamp','Record ID','Mobile','Shop Name','Customer Type','Interests','Notes','Priority','Follow-up','Source','Card File URL']);
+  if (sh.getLastRow() === 0) sh.appendRow(['Timestamp','Record ID','Mobile','Shop Name','Place','Customer Type','Interests','Notes','Priority','Follow-up','Source','Card File URL']); else ensurePlaceColumn(sh);
   let folder;
   const folderId = props.getProperty(PROP_FOLDER_ID);
   if (folderId) { try { folder = DriveApp.getFolderById(folderId); } catch (e) {} }
@@ -38,6 +38,7 @@ function doGet(e) {
       recordId:o['Record ID'],
       mobile:o.Mobile,
       shopName:o['Shop Name'],
+      place:o.Place || '',
       customerType:o['Customer Type'],
       interests,
       notes:o.Notes,
@@ -61,7 +62,9 @@ function doPost(e) {
 
     if (!data.mobile || !data.shopName) return json({ error: 'Mobile and shop name are required.' });
 
-    const sh = getSheet(), rows = sh.getDataRange().getValues();
+    const sh = getSheet();
+    ensurePlaceColumn(sh);
+    const rows = sh.getDataRange().getValues();
     const normalizedMobile = normalizeMobile(data.mobile), normalizedShop = normalizeShop(data.shopName);
     let existing = false;
 
@@ -84,6 +87,7 @@ function doPost(e) {
       recordId,
       String(data.mobile).trim(),
       String(data.shopName).trim(),
+      String(data.place || '').trim(),
       customerType,
       (data.interests || []).join(', '),
       String(data.notes || ''),
@@ -138,6 +142,11 @@ function extractDriveFileId(url) {
   const s = String(url || '');
   const m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   return m ? m[1] : '';
+}
+
+function ensurePlaceColumn(sh){
+  const headers=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),1)).getValues()[0];
+  if(headers.indexOf('Place')<0) sh.getRange(1,headers.length+1).setValue('Place');
 }
 
 function saveCardImage(folder, dataUrl, recordId, shopName) {
