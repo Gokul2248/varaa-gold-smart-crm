@@ -26,12 +26,74 @@ const interestList=['Temple','Antique','Bridal','Haram','Necklace','Jhumki','Ban
 function show(id){['home','capture','manual','lead','saved','admin'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));scrollTo(0,0)}
 function renderInterests(){document.getElementById('interests').innerHTML=interestList.map(n=>'<button class="choice '+(selected.has(n)?'selected':'')+'" onclick="toggleInterest(\''+n+'\')">✨ <strong>'+n+'</strong><span class="small">Tap to select</span></button>').join('')}
 function toggleInterest(n){selected.has(n)?selected.delete(n):selected.add(n);renderInterests()}renderInterests();
-async function handleScan(e){const f=e.target.files&&e.target.files[0];if(!f)return;lastCard=f;const p=document.getElementById('preview');p.src=URL.createObjectURL(f);p.classList.remove('hidden');document.getElementById('status').textContent='Reading card…';try{const r=await Tesseract.recognize(f,'eng',{logger:m=>{if(m.status==='recognizing text')document.getElementById('status').textContent='Reading card… '+Math.round(m.progress*100)+'%'}});document.getElementById('ocrText').value=r.data.text||'';document.getElementById('status').textContent='OCR complete — verify the details.'}catch(e){document.getElementById('status').textContent='OCR failed. Use manual entry.'}}
+async function handleScan(e){
+const f=e.target.files&&e.target.files[0];if(!f)return;
+lastCard=f;
+const p=document.getElementById('preview');p.src=URL.createObjectURL(f);p.classList.remove('hidden');
+document.getElementById('status').textContent='Preparing card image…';
+try{
+  const processed=await preprocessCard(f);
+  document.getElementById('status').textContent='Reading card…';
+  const result=await runCardOCR(processed);
+  document.getElementById('ocrText').value=result.text||'';
+  document.getElementById('status').textContent=result.text?'OCR complete — verify the details.':'No readable text found — try a clearer photo.';
+}catch(err){
+  console.error('OCR error',err);
+  document.getElementById('status').textContent='OCR failed. Use manual entry.';
+}}
+function preprocessCard(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(),url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const max=1800,scale=Math.min(max/Math.max(img.width,img.height),3);
+      const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const ctx=c.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(img,0,0,w,h);
+      const data=ctx.getImageData(0,0,w,h),d=data.data;
+      for(let i=0;i<d.length;i+=4){
+        const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        const contrast=Math.max(0,Math.min(255,(gray-128)*1.65+128));
+        d[i]=d[i+1]=d[i+2]=contrast;
+      }
+      ctx.putImageData(data,0,0);
+      c.toBlob(b=>b?resolve(b):reject(new Error('Image processing failed')),'image/png',1);
+    };
+    img.onerror=reject;img.src=url;
+  });
+}
+async function runCardOCR(image){
+  const configs=[
+    {psm:6,name:'standard'},
+    {psm:11,name:'sparse'}
+  ];
+  let best={text:'',score:-1};
+  for(const cfg of configs){
+    const r=await Tesseract.recognize(image,'eng',{
+      logger:m=>{
+        if(m.status==='recognizing text')document.getElementById('status').textContent='Reading card… '+Math.round(m.progress*100)+'%';
+      },
+      tessedit_pageseg_mode:cfg.psm
+    });
+    const text=(r.data.text||'').replace(/[\t ]+/g,' ').replace(/\n{3,}/g,'\n').trim();
+    const score=scoreOCR(text);
+    if(score>best.score)best={text,score};
+  }
+  return best;
+}
+function scoreOCR(text){
+  if(!text)return 0;
+  const phones=(text.match(/\d[\d\s().+-]{7,}\d/g)||[]).length;
+  const words=(text.match(/[A-Za-z]{3,}/g)||[]).length;
+  const digits=(text.match(/\d/g)||[]).length;
+  return phones*20+Math.min(words,40)+Math.min(digits,20);
+}
 function parseOCR(){const t=document.getElementById('ocrText').value,lines=t.split(/\n/).map(x=>x.trim()).filter(Boolean),phone=t.match(/(?:\+?\d[\d\s().-]{7,}\d)/),email=t.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);lead={name:lines[0]||'',company:lines[1]||'',designation:'',mobile:phone?phone[0].trim():'',email:email?email[0]:'',city:''};if(!lead.name&&!lead.company)return alert('Please scan a card or use manual entry.');fillLead();show('lead')}
 function fromManual(){lead={name:m_name.value,company:m_company.value,designation:m_designation.value,mobile:m_mobile.value,email:m_email.value,city:m_city.value};fillLead();show('lead')}
 function fillLead(){document.getElementById('details').innerHTML='<b>'+(lead.name||'Name not captured')+'</b><br><span class="small">'+(lead.company||'')+(lead.designation?' • '+lead.designation:'')+'<br>'+(lead.mobile||'No mobile')+' • '+(lead.email||'No email')+(lead.city?' • '+lead.city:'')+'</span>'}
 function setCustomer(t){customerType=t;newBtn.className='btn '+(t==='New Customer'?'primary':'secondary');existingBtn.className='btn '+(t==='Existing Customer'?'primary':'secondary')}
-async function saveLead(){const payload={...lead,customerType,interests:[...selected],notes:notes.value,priority:priority.value,followup:followup.value,source:'Varaa Gold',cardImage:lastCard?await fileToDataUrl(lastCard):null};try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw Error(d.error||'Save failed');savedDetails.innerHTML='<b>'+payload.name+'</b><br><span class="small">'+(payload.company||'')+' • '+payload.customerType+'</span><p class="small">'+(payload.interests.join(', ')||'No collection selected')+'</p>';const phone=(payload.mobile||'').replace(/\D/g,'');wa.href='https://wa.me/'+phone+'?text='+encodeURIComponent('Hi '+(payload.name||'')+', thank you for visiting Varaa Gold.');call.href=phone?'tel:'+phone:'#';show('saved')}catch(e){alert('Could not save lead: '+e.message)}}
+async function saveLead(){const payload={...lead,customerType,interests:[...selected],notes:notes.value,priority:priority.value,followup:followup.value,source:'Varaa Gold',cardImage:lastCard?await fileToDataUrl(lastCard):null};try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'Save failed');savedDetails.innerHTML='<b>'+payload.name+'</b><br><span class="small">'+(payload.company||'')+' • '+payload.customerType+'</span><p class="small">'+(payload.interests.join(', ')||'No collection selected')+'</p>';const phone=(payload.mobile||'').replace(/\D/g,'');wa.href='https://wa.me/'+phone+'?text='+encodeURIComponent('Hi '+(payload.name||'')+', thank you for visiting Varaa Gold.');call.href=phone?'tel:'+phone:'#';show('saved')}catch(e){alert('Could not save lead: '+e.message)}}
 function fileToDataUrl(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
 function resetLead(){lead={};selected.clear();lastCard=null;notes.value='';document.getElementById('ocrText').value='';renderInterests();show('home')}
 async function loadAdmin(){try{const r=await fetch('/api/leads',{headers:{'x-admin-password':adminPass.value}}),d=await r.json();if(!r.ok)throw Error(d.error||'Access denied');login.classList.add('hidden');adminData.classList.remove('hidden');const a=d.leads||[];metrics.innerHTML=[['Visitors',a.length],['New Customers',a.filter(x=>x['Customer Type']==='New Customer').length],['Existing Customers',a.filter(x=>x['Customer Type']==='Existing Customer').length],['Hot Leads',a.filter(x=>x.Priority==='Hot'||x.priority==='Hot').length]].map(x=>'<div class="metric"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>').join('');const c={};a.forEach(x=>(x.interests||[]).forEach(i=>c[i]=(c[i]||0)+1));stats.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).map(x=>'<div style="margin:8px 0"><b>'+x[0]+'</b> — '+x[1]+'</div>').join('')||'<span class="small">No interests yet.</span>';leads.innerHTML=a.slice(-25).reverse().map(x=>'<div class="lead"><div class="lead-top"><strong>'+((x.Name||x.name)||'Unnamed')+'</strong><span class="pill">'+(x.Priority||x.priority||'New')+'</span></div><div class="small">'+(x.Company||x.company||'')+' • '+(x.Mobile||x.mobile||'')+'<br>'+((x.Interests||x.interests||[]).join?((x.Interests||x.interests||[]).join(', ')):x.Interests||'')+'</div></div>').join('')||'<span class="small">No leads yet.</span>'}catch(e){alert(e.message)}}
