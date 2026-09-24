@@ -1,31 +1,59 @@
-# Varaa Gold Smart Visitor & Follow-up CRM
+# Varaa Gold Smart CRM
 
-Mobile-first B2B exhibition lead capture for Varaa Gold.
+A mobile-first visitor CRM for Varaa Gold exhibitions and jewellery sales teams.
 
 ## Architecture
-- Frontend + serverless API: Cloudflare Pages + Pages Functions
-- Backend storage: Google Drive (Google Sheet for structured leads + Drive folder for visiting-card images)
-- OCR: Tesseract.js in browser
-- Admin dashboard: password-protected through the cloud API
 
-## Google Drive setup
-1. Create/open a Google Apps Script project using the Google account that should own the CRM data.
-2. Paste `google-apps-script.gs`.
-3. Replace `REPLACE_WITH_A_LONG_RANDOM_SECRET` with a long random secret.
-4. Run `setup()` once and authorize Drive/Sheets access.
-5. Deploy as a Web app: Execute as Me; Who has access: Anyone.
-6. Copy the Web App URL.
+- **Frontend:** Static HTML/CSS/JavaScript in `public/index.html`
+- **Hosting/runtime:** Cloudflare Workers with Static Assets
+- **API:** `/api/leads` handled by `worker.js`
+- **Cloud storage:** Google Apps Script → Google Sheet + Google Drive
+- **OCR:** Tesseract.js in the browser
+- **Admin dashboard:** Password protected through the Cloudflare Worker
 
-## Cloudflare environment variables
-Set these in Workers & Pages > your project > Settings > Environment variables:
-- `GOOGLE_APPS_SCRIPT_URL` = Apps Script Web App URL
-- `GOOGLE_APPS_SCRIPT_SECRET` = same secret used in Apps Script
-- `ADMIN_PASSWORD` = password for the Varaa admin dashboard
+## Cloudflare configuration
 
-The production API is implemented as `functions/api/leads.js` for Cloudflare Pages Functions.
+The repository contains `wrangler.jsonc` so Cloudflare can deploy the application as a full-stack Worker with static assets.
+
+Required production secrets/variables:
+
+```text
+GOOGLE_APPS_SCRIPT_URL
+GOOGLE_APPS_SCRIPT_SECRET
+ADMIN_PASSWORD
+```
+
+Configure these in the Cloudflare Worker under **Settings → Variables and Secrets**. Do not commit their values to GitHub.
+
+## Google Apps Script setup
+
+1. Open Google Apps Script.
+2. Copy `google-apps-script.gs` into the project.
+3. Set the `SECRET` constant to a long random value.
+4. Run `setup()` once and authorize the Google account.
+5. Deploy the script as a Web app.
+6. Execute as the script owner.
+7. Allow anonymous/public access if required by the account so Cloudflare can call the endpoint.
+8. Copy the generated `/exec` URL into `GOOGLE_APPS_SCRIPT_URL`.
+9. Put the same secret value into `GOOGLE_APPS_SCRIPT_SECRET`.
+
+The Google account that authorizes `setup()` owns the created Sheet and Drive folder.
 
 ## Deployment
-Connect this GitHub repository to Cloudflare Pages, use `main` as the production branch, leave the build command empty for the static root, and deploy. Cloudflare Pages automatically redeploys when new commits are pushed.
 
-## Notes
-This MVP deliberately avoids a complex AI layer so it can be used quickly at the exhibition. AI can be added later for card extraction, lead summarization, duplicate detection, follow-up recommendations and collection matching.
+Connect this GitHub repository to Cloudflare Workers Builds and deploy the `main` branch. The `wrangler.jsonc` file is the source configuration for the Worker and static assets.
+
+Every commit to the configured production branch can trigger a new deployment.
+
+## Local structure
+
+```text
+/
+├── public/
+│   └── index.html
+├── worker.js
+├── wrangler.jsonc
+├── google-apps-script.gs
+├── .gitignore
+└── README.md
+```
