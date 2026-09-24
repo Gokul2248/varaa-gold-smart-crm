@@ -93,7 +93,7 @@ function detectCardRegion(img){
   components.sort((a,b)=>{
     const shapeA=1-Math.min(1,Math.abs(Math.log(a.aspect/1.65))/1.2);
     const shapeB=1-Math.min(1,Math.abs(Math.log(b.aspect/1.65))/1.2);
-    return (b.count*b.shapeA||0)-(a.count*a.shapeB||0);
+    return (b.count*shapeB)-(a.count*shapeA);
   });
   if(!components.length)return null;
   const best=components[0];
