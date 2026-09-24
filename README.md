@@ -45,6 +45,8 @@ Connect this GitHub repository to Cloudflare Workers Builds and deploy the `main
 
 Every commit to the configured production branch can trigger a new deployment.
 
+Cloudflare build pipeline check: GitHub integration is configured for the `main` branch.
+
 ## Local structure
 
 ```text
