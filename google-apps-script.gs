@@ -146,7 +146,14 @@ function extractDriveFileId(url) {
 
 function ensurePlaceColumn(sh){
   const headers=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),1)).getValues()[0];
-  if(headers.indexOf('Place')<0) sh.getRange(1,headers.length+1).setValue('Place');
+  if(headers.indexOf('Place')>=0) return;
+  const shopIndex=headers.indexOf('Shop Name');
+  if(shopIndex>=0){
+    sh.insertColumnAfter(shopIndex+1);
+    sh.getRange(1,shopIndex+2).setValue('Place');
+  } else {
+    sh.getRange(1,headers.length+1).setValue('Place');
+  }
 }
 
 function saveCardImage(folder, dataUrl, recordId, shopName) {
