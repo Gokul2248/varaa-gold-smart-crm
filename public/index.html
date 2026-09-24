@@ -1,158 +1,24 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Varaa Gold Smart CRM</title>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Varaa Gold Smart CRM</title>
 <style>
-:root{--maroon:#3a0b22;--gold:#c99a35;--cream:#fbf7ef;--ink:#241822;--muted:#766b73;--line:#eadfce}
-*{box-sizing:border-box}body{margin:0;background:#f5f0e8;color:var(--ink);font-family:Inter,system-ui,sans-serif}.app{min-height:100vh}.top{background:linear-gradient(135deg,#30091d,#5a1737);color:#fff;padding:18px;position:sticky;top:0;z-index:10}.brand{display:flex;gap:12px;align-items:center}.logo{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#e5c06b,#9b6a19);display:grid;place-items:center;font-weight:800;color:#fff}.brand h1{margin:0;font-family:Georgia,serif;font-size:23px}.brand p{margin:2px 0 0;color:#f2ddae;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.wrap{max-width:860px;margin:auto;padding:18px}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 10px 28px #3211240c}.hero{background:linear-gradient(145deg,#fffaf1,#f7ecdf)}h2,h3{font-family:Georgia,serif;margin:0 0 8px}.sub,.small{color:var(--muted);font-size:13px;line-height:1.5}.btn{border:0;border-radius:13px;padding:14px 16px;font-weight:700;cursor:pointer;width:100%;font-size:15px}.primary{background:linear-gradient(135deg,var(--gold),#a8771c);color:#fff}.secondary{background:#fff;border:1px solid #d9c9b0;color:var(--maroon)}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.choice{border:1px solid var(--line);background:#fff;border-radius:16px;padding:12px;text-align:left;cursor:pointer;min-height:80px}.choice.selected{border:2px solid var(--gold);background:#fff8e8}.choice strong{display:block;margin-top:5px}.field{margin:10px 0}.field label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;padding:13px;border:1px solid #ddd1c3;border-radius:12px;font:inherit}.field textarea{min-height:90px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none!important}.scan{border:2px dashed #d7c2a1;border-radius:18px;padding:18px;text-align:center;background:#fffaf2}.preview{width:100%;max-height:220px;object-fit:contain;border-radius:14px;margin:10px 0}.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#fff8e8;border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}.metric b{display:block;font-size:24px;color:var(--maroon)}.lead{border-top:1px solid var(--line);padding:12px 0}.lead-top{display:flex;justify-content:space-between;gap:8px}.pill{display:inline-block;padding:5px 8px;border-radius:99px;background:#f7eee0;font-size:11px;font-weight:700}.actions{display:flex;gap:8px;margin-top:8px}.actions a{flex:1;text-align:center;padding:9px;border-radius:10px;background:#f7eee0;color:var(--maroon);text-decoration:none;font-weight:700;font-size:12px}.footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}@media(max-width:650px){.metric-grid{grid-template-columns:repeat(2,1fr)}}
-</style>
-</head>
-<body>
-<div class="app"><header class="top"><div class="brand"><div class="logo">VG</div><div><h1>Varaa Gold</h1><p>Smart Visitor CRM</p></div></div></header>
-<main class="wrap">
-<section id="home" class="card hero"><h2>Capture a Visitor</h2><p class="sub">Scan a visiting card, verify the details, record collection interests and save the lead to the Varaa Gold cloud CRM.</p><button class="btn primary" onclick="show('capture')">📷 Scan Visiting Card</button><button class="btn secondary" style="margin-top:8px" onclick="show('manual')">✍️ Enter Manually</button><button class="btn secondary" style="margin-top:8px" onclick="show('admin')">📊 Admin Dashboard</button></section>
-<section id="capture" class="card hidden"><h2>Scan Visiting Card</h2><p class="sub">Take a clear photo of the card. OCR runs in the browser.</p><div class="scan"><input id="cardFile" type="file" accept="image/*" capture="environment" onchange="handleScan(event)"><img id="preview" class="preview hidden"><div id="status" class="small">Choose a card image.</div></div><div class="field"><label>OCR text</label><textarea id="ocrText" placeholder="OCR text will appear here"></textarea></div><button class="btn primary" onclick="parseOCR()">Continue →</button><button class="btn secondary" style="margin-top:8px" onclick="show('home')">Back</button></section>
-<section id="manual" class="card hidden"><h2>Manual Entry</h2><div class="field"><label>Name</label><input id="m_name"></div><div class="row"><div class="field"><label>Company</label><input id="m_company"></div><div class="field"><label>Designation</label><input id="m_designation"></div></div><div class="row"><div class="field"><label>Mobile</label><input id="m_mobile" inputmode="tel"></div><div class="field"><label>Email</label><input id="m_email" inputmode="email"></div></div><div class="field"><label>City</label><input id="m_city"></div><button class="btn primary" onclick="fromManual()">Continue →</button><button class="btn secondary" style="margin-top:8px" onclick="show('home')">Back</button></section>
-<section id="lead" class="card hidden"><h2>Verify Visitor</h2><div id="details" class="card"></div><div class="field"><label>Customer type</label><div class="row"><button id="newBtn" class="btn primary" onclick="setCustomer('New Customer')">🆕 New</button><button id="existingBtn" class="btn secondary" onclick="setCustomer('Existing Customer')">🔁 Existing</button></div></div><h3>Collection Interest</h3><div id="interests" class="grid"></div><div class="field"><label>Notes</label><textarea id="notes" placeholder="Requirements, preferences or follow-up notes"></textarea></div><div class="row"><div class="field"><label>Priority</label><select id="priority"><option>Hot</option><option>Warm</option><option>Follow-up</option><option>General Enquiry</option></select></div><div class="field"><label>Follow-up</label><select id="followup"><option>Today</option><option>Tomorrow</option><option>3 Days</option><option>Next Week</option></select></div></div><button class="btn primary" onclick="saveLead()">💾 Save Lead</button><button class="btn secondary" style="margin-top:8px" onclick="show('home')">Cancel</button></section>
-<section id="saved" class="card hidden"><h2>Lead Saved Successfully</h2><p class="sub">The lead is now available to the Varaa Gold team.</p><div id="savedDetails" class="card"></div><div class="actions"><a id="wa" target="_blank">WhatsApp</a><a id="call">Call</a></div><button class="btn primary" style="margin-top:12px" onclick="resetLead()">+ Capture Next Visitor</button></section>
+:root{--m:#3a0b22;--g:#c99a35;--bg:#f5f0e8;--line:#eadfce;--muted:#766b73}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#241822;font-family:Inter,system-ui,sans-serif}.top{background:linear-gradient(135deg,#30091d,#5a1737);color:#fff;padding:18px}.brand{display:flex;align-items:center;gap:10px}.logo{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#e5c06b,#9b6a19);font-weight:800}.brand h1{margin:0;font:700 23px Georgia}.brand p{margin:2px 0;color:#f2ddae;font-size:11px;text-transform:uppercase;letter-spacing:.1em}.wrap{max-width:860px;margin:auto;padding:18px}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 10px 28px #3211240c}.hero{background:linear-gradient(145deg,#fffaf1,#f7ecdf)}h2,h3{font-family:Georgia;margin:0 0 8px}.sub,.small{color:var(--muted);font-size:13px;line-height:1.5}.btn{border:0;border-radius:13px;padding:14px 16px;font-weight:700;cursor:pointer;width:100%;font-size:15px}.primary{background:linear-gradient(135deg,var(--g),#a8771c);color:#fff}.secondary{background:#fff;border:1px solid #d9c9b0;color:var(--m)}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.choice{border:1px solid var(--line);background:#fff;border-radius:16px;padding:12px;text-align:left;cursor:pointer;min-height:80px}.choice.selected{border:2px solid var(--g);background:#fff8e8}.choice strong{display:block;margin-top:5px}.field{margin:10px 0}.field label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;padding:13px;border:1px solid #ddd1c3;border-radius:12px;font:inherit}.field textarea{min-height:90px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none!important}.scan{border:2px dashed #d7c2a1;border-radius:18px;padding:18px;text-align:center;background:#fffaf2}.preview{width:100%;max-height:260px;object-fit:contain;border-radius:14px;margin:10px 0}.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#fff8e8;border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}.metric b{display:block;font-size:24px;color:var(--m)}.lead{border-top:1px solid var(--line);padding:12px 0}.lead-top{display:flex;justify-content:space-between}.pill{display:inline-block;padding:5px 8px;border-radius:99px;background:#f7eee0;font-size:11px;font-weight:700}.actions{display:flex;gap:8px;margin-top:8px}.actions a{flex:1;text-align:center;padding:9px;border-radius:10px;background:#f7eee0;color:var(--m);text-decoration:none;font-weight:700;font-size:12px}@media(max-width:650px){.metric-grid{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><header class="top"><div class="brand"><div class="logo">VG</div><div><h1>Varaa Gold</h1><p>Smart Visitor CRM</p></div></div></header><main class="wrap">
+<section id="home" class="card hero"><h2>Capture a Visitor</h2><p class="sub">Fast exhibition capture. Save the original visiting card image and record only the mobile number, shop name and collection preference. No OCR at the stall.</p><button class="btn primary" onclick="show('capture')">📷 Scan Visiting Card</button><button class="btn secondary" style="margin-top:8px" onclick="show('admin')">📊 Admin Dashboard</button></section>
+<section id="capture" class="card hidden"><h2>Capture Visiting Card</h2><p class="sub">Use <b>Take Photo</b> for the camera or <b>Choose Photo</b> to select a card from the album.</p><div class="scan"><button class="btn primary" onclick="cameraFile.click()">📷 Take Photo</button><button class="btn secondary" style="margin-top:8px" onclick="albumFile.click()">🖼️ Choose Photo</button><input id="cameraFile" type="file" accept="image/*" capture="environment" onchange="handleCard(event)" hidden><input id="albumFile" type="file" accept="image/*" onchange="handleCard(event)" hidden><img id="preview" class="preview hidden"><div id="status" class="small">No card captured yet.</div></div><button class="btn primary" style="margin-top:8px" onclick="continueLead()">Continue →</button><button class="btn secondary" style="margin-top:8px" onclick="show('home')">Back</button></section>
+<section id="lead" class="card hidden"><h2>Save Visitor Preference</h2><p class="sub">The image is the source of truth. We will extract the card details later.</p><div id="cardInfo" class="card"></div><div class="row"><div class="field"><label>Mobile / WhatsApp *</label><input id="mobile" inputmode="tel" placeholder="10-digit mobile"></div><div class="field"><label>Shop / Company *</label><input id="shop" placeholder="Business name"></div></div><h3>Customer Type</h3><div class="row"><button id="newBtn" class="btn primary" onclick="setCustomer('New Customer')">🆕 New</button><button id="existingBtn" class="btn secondary" onclick="setCustomer('Existing Customer')">🔁 Existing</button></div><p id="existingHint" class="small">Existing matching is checked automatically using mobile or shop name.</p><h3>Collection Interest</h3><div id="interests" class="grid"></div><div class="field"><label>Custom requirement / notes</label><textarea id="notes" placeholder="Type or use your phone's voice-to-text 🎙️"></textarea></div><div class="row"><div class="field"><label>Priority</label><select id="priority"><option>Hot</option><option>Warm</option><option>Follow-up</option><option>General Enquiry</option></select></div><div class="field"><label>Follow-up</label><select id="followup"><option>Today</option><option>Tomorrow</option><option>3 Days</option><option>Next Week</option></select></div></div><button class="btn primary" onclick="saveLead()">💾 Save Preference</button><button class="btn secondary" style="margin-top:8px" onclick="show('home')">Cancel</button></section>
+<section id="saved" class="card hidden"><h2>Lead Saved Successfully</h2><div id="savedDetails" class="card"></div><div class="actions"><a id="wa" target="_blank">WhatsApp</a><a id="call">Call</a></div><button class="btn primary" style="margin-top:12px" onclick="reset()">+ Capture Next Visitor</button></section>
 <section id="admin" class="card hidden"><h2>Exhibition Dashboard</h2><div id="login"><div class="field"><label>Admin password</label><input id="adminPass" type="password"></div><button class="btn primary" onclick="loadAdmin()">Open Dashboard</button></div><div id="adminData" class="hidden"><div id="metrics" class="metric-grid"></div><div class="card"><h3>Collection Interest</h3><div id="stats"></div></div><div class="card"><h3>Recent Leads</h3><div id="leads"></div></div></div><button class="btn secondary" onclick="show('home')">Back</button></section>
-<div class="footer">VARAA Gold • Smart Visitor CRM</div>
-</main></div>
+</main></body>
 <script>
-const interestList=['Temple','Antique','Bridal','Haram','Necklace','Jhumki','Bangles','New Launches'];let lead={},selected=new Set(),customerType='New Customer',lastCard=null;
-function show(id){['home','capture','manual','lead','saved','admin'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));scrollTo(0,0)}
-function renderInterests(){document.getElementById('interests').innerHTML=interestList.map(n=>'<button class="choice '+(selected.has(n)?'selected':'')+'" onclick="toggleInterest(\''+n+'\')">✨ <strong>'+n+'</strong><span class="small">Tap to select</span></button>').join('')}
-function toggleInterest(n){selected.has(n)?selected.delete(n):selected.add(n);renderInterests()}renderInterests();
-async function handleScan(e){
-const f=e.target.files&&e.target.files[0];if(!f)return;
-lastCard=f;
-const p=document.getElementById('preview');p.src=URL.createObjectURL(f);p.classList.remove('hidden');
-document.getElementById('status').textContent='Detecting visiting card…';
-try{
-  const source=await loadImage(f);
-  const cardCrop=detectCardRegion(source);
-  document.getElementById('status').textContent=cardCrop?'Card detected — preparing OCR…':'Preparing OCR image…';
-  const processed=await preprocessCard(cardCrop||source);
-  const result=await runCardOCR(processed);
-  document.getElementById('ocrText').value=result.text||'';
-  document.getElementById('status').textContent=result.text?'OCR complete — verify the details.':'No readable text found — try a closer photo.';
-}catch(err){
-  console.error('OCR error',err);
-  document.getElementById('status').textContent='OCR failed. Use manual entry.';
-}}
-function loadImage(file){
-  return new Promise((resolve,reject)=>{
-    const img=new Image(),url=URL.createObjectURL(file);
-    img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};
-    img.onerror=reject;img.src=url;
-  });
-}
-function detectCardRegion(img){
-  const max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
-  const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
-  const c=document.createElement('canvas');c.width=w;c.height=h;
-  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);
-  const data=ctx.getImageData(0,0,w,h).data;
-  const step=3,sw=Math.ceil(w/step),sh=Math.ceil(h/step);
-  const mask=new Uint8Array(sw*sh);
-  for(let yy=0;yy<sh;yy++){
-    const y=Math.min(h-1,yy*step);
-    for(let xx=0;xx<sw;xx++){
-      const x=Math.min(w-1,xx*step),i=(y*w+x)*4;
-      const r=data[i]/255,g=data[i+1]/255,b=data[i+2]/255;
-      const mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=mx-mn,lum=.299*r+.587*g+.114*b;
-      const yellow=r>.45&&g>.38&&b<.42&&r>b*1.35&&g>b*1.2;
-      const colored=sat>.18&&(lum<.78||yellow);
-      const darkBlue=lum<.48&&sat>.08;
-      if(colored||darkBlue)mask[yy*sw+xx]=1;
-    }
-  }
-  const seen=new Uint8Array(mask.length),components=[];
-  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
-    const idx=y*sw+x;if(!mask[idx]||seen[idx])continue;
-    const q=[idx];seen[idx]=1;let head=0,count=0,minX=x,maxX=x,minY=y,maxY=y;
-    while(head<q.length){
-      const p=q[head++],py=Math.floor(p/sw),px=p-py*sw;count++;
-      if(px<minX)minX=px;if(px>maxX)maxX=px;if(py<minY)minY=py;if(py>maxY)maxY=py;
-      const ns=[p-1,p+1,p-sw,p+sw];
-      for(const n of ns){
-        if(n<0||n>=mask.length||seen[n]||!mask[n])continue;
-        const ny=Math.floor(n/sw),nx=n-ny*sw;
-        if(Math.abs(nx-px)>1||Math.abs(ny-py)>1)continue;
-        seen[n]=1;q.push(n);
-      }
-    }
-    const bw=maxX-minX+1,bh=maxY-minY+1,area=(bw*bh)/(sw*sh),aspect=bw/bh;
-    if(count>80&&area>.012&&area<.7&&aspect>.65&&aspect<2.8){
-      components.push({count,area,aspect,minX,maxX,minY,maxY});
-    }
-  }
-  components.sort((a,b)=>{
-    const shapeA=1-Math.min(1,Math.abs(Math.log(a.aspect/1.65))/1.2);
-    const shapeB=1-Math.min(1,Math.abs(Math.log(b.aspect/1.65))/1.2);
-    return (b.count*shapeB)-(a.count*shapeA);
-  });
-  if(!components.length)return null;
-  const best=components[0];
-  const bw=best.maxX-best.minX+1,bh=best.maxY-best.minY+1;
-  const padX=Math.round(bw*.06),padY=Math.round(bh*.08);
-  const sx=Math.max(0,best.minX-padX),sy=Math.max(0,best.minY-padY);
-  const ex=Math.min(sw,best.maxX+padX+1),ey=Math.min(sh,best.maxY+padY+1);
-  const out=document.createElement('canvas');
-  out.width=(ex-sx)*step;out.height=(ey-sy)*step;
-  out.getContext('2d').drawImage(c,sx*step,sy*step,out.width,out.height,0,0,out.width,out.height);
-  return out;
-}
-function preprocessCard(source){
-  return new Promise((resolve,reject)=>{
-    const sourceW=source.width||source.naturalWidth,sourceH=source.height||source.naturalHeight;
-    const max=2400,scale=Math.min(max/Math.max(sourceW,sourceH),4);
-    const w=Math.max(1,Math.round(sourceW*scale)),h=Math.max(1,Math.round(sourceH*scale));
-    const c=document.createElement('canvas');c.width=w;c.height=h;
-    const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);
-    const data=ctx.getImageData(0,0,w,h),d=data.data;
-    for(let i=0;i<d.length;i+=4){
-      const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-      const contrast=Math.max(0,Math.min(255,(gray-128)*1.8+128));
-      d[i]=d[i+1]=d[i+2]=contrast;
-    }
-    ctx.putImageData(data,0,0);
-    c.toBlob(b=>b?resolve(b):reject(new Error('Image processing failed')),'image/png',1);
-  });
-}
-async function runCardOCR(image){
-  const configs=[{psm:6},{psm:11}];
-  let best={text:'',score:-1};
-  for(const cfg of configs){
-    const r=await Tesseract.recognize(image,'eng',{
-      logger:m=>{if(m.status==='recognizing text')document.getElementById('status').textContent='Reading card… '+Math.round(m.progress*100)+'%'},
-      tessedit_pageseg_mode:cfg.psm
-    });
-    const text=(r.data.text||'').replace(/[\t ]+/g,' ').replace(/\n{3,}/g,'\n').trim();
-    const score=scoreOCR(text);
-    if(score>best.score)best={text,score};
-  }
-  return best;
-}
-function scoreOCR(text){
-  if(!text)return 0;
-  const phoneMatches=text.match(/(?:\+?\d[\d\s().-]{7,}\d)/g)||[];
-  const phones=phoneMatches.filter(x=>(x.match(/\d/g)||[]).length>=8).length;
-  const words=(text.match(/[A-Za-z]{3,}/g)||[]).length;
-  const digits=(text.match(/\d/g)||[]).length;
-  const businessWords=(text.match(/ram|piece|centre|center|gold|jewell|merchant|mobile|phone|avenue|road|market|gstin/gi)||[]).length;
-  return phones*40+businessWords*12+Math.min(words,50)+Math.min(digits,25);
-}
-function parseOCR(){const t=document.getElementById('ocrText').value,lines=t.split(/\n/).map(x=>x.trim()).filter(Boolean),phone=t.match(/(?:\+?\d[\d\s().-]{7,}\d)/),email=t.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);lead={name:lines[0]||'',company:lines[1]||'',designation:'',mobile:phone?phone[0].trim():'',email:email?email[0]:'',city:''};if(!lead.name&&!lead.company)return alert('Please scan a card or use manual entry.');fillLead();show('lead')}
-function fromManual(){lead={name:m_name.value,company:m_company.value,designation:m_designation.value,mobile:m_mobile.value,email:m_email.value,city:m_city.value};fillLead();show('lead')}
-function fillLead(){document.getElementById('details').innerHTML='<b>'+(lead.name||'Name not captured')+'</b><br><span class="small">'+(lead.company||'')+(lead.designation?' • '+lead.designation:'')+'<br>'+(lead.mobile||'No mobile')+' • '+(lead.email||'No email')+(lead.city?' • '+lead.city:'')+'</span>'}
+const interestList=['Temple','Antique','Bridal','Haram','Necklace','Jhumki','Bangles','New Launches'];let selected=new Set(),customerType='New Customer',lastCard=null;
+function show(id){['home','capture','lead','saved','admin'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));scrollTo(0,0)}
+function render(){interests.innerHTML=interestList.map(n=>'<button class="choice '+(selected.has(n)?'selected':'')+'" onclick="toggle(\''+n+'\')">✨ <strong>'+n+'</strong><span class="small">Tap to select</span></button>').join('')}function toggle(n){selected.has(n)?selected.delete(n):selected.add(n);render()}render();
+function handleCard(e){const f=e.target.files&&e.target.files[0];if(!f)return;lastCard=f;preview.src=URL.createObjectURL(f);preview.classList.remove('hidden');status.textContent='Card captured. No OCR is being run.'}
+function continueLead(){if(!lastCard)return alert('Please capture the visiting card first.');cardInfo.innerHTML='<img class="preview" src="'+preview.src+'"><div class="small">Original image will be stored in Google Drive and linked to the generated index.</div>';show('lead')}
 function setCustomer(t){customerType=t;newBtn.className='btn '+(t==='New Customer'?'primary':'secondary');existingBtn.className='btn '+(t==='Existing Customer'?'primary':'secondary')}
-async function saveLead(){const payload={...lead,customerType,interests:[...selected],notes:notes.value,priority:priority.value,followup:followup.value,source:'Varaa Gold',cardImage:lastCard?await fileToDataUrl(lastCard):null};try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok||d.ok===false)throw Error(d.error||'Save failed');savedDetails.innerHTML='<b>'+payload.name+'</b><br><span class="small">'+(payload.company||'')+' • '+payload.customerType+'</span><p class="small">'+(payload.interests.join(', ')||'No collection selected')+'</p>';const phone=(payload.mobile||'').replace(/\D/g,'');wa.href='https://wa.me/'+phone+'?text='+encodeURIComponent('Hi '+(payload.name||'')+', thank you for visiting Varaa Gold.');call.href=phone?'tel:'+phone:'#';show('saved')}catch(e){alert('Could not save lead: '+e.message)}}
-function fileToDataUrl(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
-function resetLead(){lead={};selected.clear();lastCard=null;notes.value='';document.getElementById('ocrText').value='';renderInterests();show('home')}
-async function loadAdmin(){try{const r=await fetch('/api/leads',{headers:{'x-admin-password':adminPass.value}}),d=await r.json();if(!r.ok)throw Error(d.error||'Access denied');login.classList.add('hidden');adminData.classList.remove('hidden');const a=d.leads||[];metrics.innerHTML=[['Visitors',a.length],['New Customers',a.filter(x=>x['Customer Type']==='New Customer').length],['Existing Customers',a.filter(x=>x['Customer Type']==='Existing Customer').length],['Hot Leads',a.filter(x=>x.Priority==='Hot'||x.priority==='Hot').length]].map(x=>'<div class="metric"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>').join('');const c={};a.forEach(x=>(x.interests||[]).forEach(i=>c[i]=(c[i]||0)+1));stats.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).map(x=>'<div style="margin:8px 0"><b>'+x[0]+'</b> — '+x[1]+'</div>').join('')||'<span class="small">No interests yet.</span>';leads.innerHTML=a.slice(-25).reverse().map(x=>'<div class="lead"><div class="lead-top"><strong>'+((x.Name||x.name)||'Unnamed')+'</strong><span class="pill">'+(x.Priority||x.priority||'New')+'</span></div><div class="small">'+(x.Company||x.company||'')+' • '+(x.Mobile||x.mobile||'')+'<br>'+((x.Interests||x.interests||[]).join?((x.Interests||x.interests||[]).join(', ')):x.Interests||'')+'</div></div>').join('')||'<span class="small">No leads yet.</span>'}catch(e){alert(e.message)}}
-</script>
-</body></html>
+async function saveLead(){const m=mobile.value.trim(),s=shop.value.trim();if(!m||!s)return alert('Mobile number and shop/company name are required.');if(!lastCard)return alert('Please capture the card image.');const payload={mobile:m,shopName:s,customerType,interests:[...selected],notes:notes.value,priority:priority.value,followup:followup.value,source:'GJIIE Chennai • Stall E36',cardImage:await toData(lastCard)};try{const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok)throw Error(d.error||'Save failed');savedDetails.innerHTML='<b>Visitor saved</b><br><span class="small">Index: '+d.recordId+'<br>Shop: '+s+'<br>Mobile: '+m+'<br>Customer: '+(d.existingCustomer?'Existing Customer':'New Customer')+'</span><p class="small">Original card image saved to Google Drive. Details can be extracted later.</p>';const p=m.replace(/\D/g,'');wa.href='https://wa.me/'+p;call.href=p?'tel:'+p:'#';show('saved')}catch(e){alert('Could not save: '+e.message)}}
+function toData(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}
+function reset(){selected.clear();customerType='New Customer';lastCard=null;mobile.value='';shop.value='';notes.value='';cameraFile.value='';albumFile.value='';preview.src='';preview.classList.add('hidden');status.textContent='No card captured yet.';render();setCustomer('New Customer');show('home')}
+async function loadAdmin(){try{const r=await fetch('/api/leads',{headers:{'x-admin-password':adminPass.value}}),d=await r.json();if(!r.ok)throw Error(d.error||'Access denied');login.classList.add('hidden');adminData.classList.remove('hidden');const a=d.leads||[];const get=x=>x||'';metrics.innerHTML=[['Visitors',a.length],['New Customers',a.filter(x=>get(x.customerType)==='New Customer').length],['Existing Customers',a.filter(x=>get(x.customerType)==='Existing Customer').length],['Hot Leads',a.filter(x=>get(x.priority)==='Hot').length]].map(x=>'<div class="metric"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>').join('');const c={};a.forEach(x=>(x.interests||[]).forEach(i=>c[i]=(c[i]||0)+1));stats.innerHTML=Object.entries(c).sort((a,b)=>b[1]-a[1]).map(x=>'<div style="margin:8px 0"><b>'+x[0]+'</b> — '+x[1]+'</div>').join('')||'<span class="small">No interests yet.</span>';leads.innerHTML=a.slice(-25).reverse().map(x=>'<div class="lead"><div class="lead-top"><strong>'+get(x.shopName||'Unnamed shop')+'</strong><span class="pill">'+get(x.priority||'New')+'</span></div><div class="small">'+get(x.mobile)+'<br>'+((x.interests||[]).join(', '))+'<br>'+get(x.notes)+'<br>Index: '+get(x.recordId)+'</div><div class="actions"><a href="https://wa.me/'+get(x.mobile).replace(/\D/g,'')+'" target="_blank">WhatsApp</a><a href="tel:'+get(x.mobile).replace(/\D/g,'')+'">Call</a>'+(x.cardFileUrl?'<a href="'+x.cardFileUrl+'" target="_blank">Card</a>':'')+'</div></div>').join('')||'<span class="small">No leads yet.</span>'}catch(e){alert(e.message)}}
+</script></html>
