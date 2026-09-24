@@ -30,50 +30,74 @@ async function handleScan(e){
 const f=e.target.files&&e.target.files[0];if(!f)return;
 lastCard=f;
 const p=document.getElementById('preview');p.src=URL.createObjectURL(f);p.classList.remove('hidden');
-document.getElementById('status').textContent='Preparing card image…';
+document.getElementById('status').textContent='Detecting visiting card…';
 try{
-  const processed=await preprocessCard(f);
-  document.getElementById('status').textContent='Reading card…';
+  const source=await loadImage(f);
+  const cardCrop=detectCardRegion(source);
+  document.getElementById('status').textContent=cardCrop?'Card detected — preparing OCR…':'Preparing OCR image…';
+  const processed=await preprocessCard(cardCrop||source);
   const result=await runCardOCR(processed);
   document.getElementById('ocrText').value=result.text||'';
-  document.getElementById('status').textContent=result.text?'OCR complete — verify the details.':'No readable text found — try a clearer photo.';
+  document.getElementById('status').textContent=result.text?'OCR complete — verify the details.':'No readable text found — try a closer photo.';
 }catch(err){
   console.error('OCR error',err);
   document.getElementById('status').textContent='OCR failed. Use manual entry.';
 }}
-function preprocessCard(file){
+function loadImage(file){
   return new Promise((resolve,reject)=>{
     const img=new Image(),url=URL.createObjectURL(file);
-    img.onload=()=>{
-      URL.revokeObjectURL(url);
-      const max=1800,scale=Math.min(max/Math.max(img.width,img.height),3);
-      const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
-      const c=document.createElement('canvas');c.width=w;c.height=h;
-      const ctx=c.getContext('2d',{willReadFrequently:true});
-      ctx.drawImage(img,0,0,w,h);
-      const data=ctx.getImageData(0,0,w,h),d=data.data;
-      for(let i=0;i<d.length;i+=4){
-        const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        const contrast=Math.max(0,Math.min(255,(gray-128)*1.65+128));
-        d[i]=d[i+1]=d[i+2]=contrast;
-      }
-      ctx.putImageData(data,0,0);
-      c.toBlob(b=>b?resolve(b):reject(new Error('Image processing failed')),'image/png',1);
-    };
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img)};
     img.onerror=reject;img.src=url;
   });
 }
+function detectCardRegion(img){
+  const max=1400,scale=Math.min(1,max/Math.max(img.width,img.height));
+  const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);
+  const data=ctx.getImageData(0,0,w,h).data;
+  let minX=w,minY=h,maxX=-1,maxY=-1,count=0;
+  for(let y=0;y<h;y+=2){
+    for(let x=0;x<w;x+=2){
+      const i=(y*w+x)*4,r=data[i],g=data[i+1],b=data[i+2];
+      const yellow=(r>125&&g>105&&b<145&&r>b*1.22&&g>b*1.12);
+      if(yellow){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);count++;}
+    }
+  }
+  if(count<Math.max(40,w*h*0.0008)||maxX<0)return null;
+  const bw=maxX-minX+1,bh=maxY-minY+1;
+  const area=bw*bh/(w*h);
+  if(area<0.01||area>0.65)return null;
+  const padX=Math.round(bw*0.10),padY=Math.round(bh*0.18);
+  const sx=Math.max(0,minX-padX),sy=Math.max(0,minY-padY);
+  const ex=Math.min(w,maxX+padX+1),ey=Math.min(h,maxY+padY+1);
+  const out=document.createElement('canvas');out.width=ex-sx;out.height=ey-sy;
+  out.getContext('2d').drawImage(c,sx,sy,out.width,out.height,0,0,out.width,out.height);
+  return out;
+}
+function preprocessCard(source){
+  return new Promise((resolve,reject)=>{
+    const sourceW=source.width||source.naturalWidth,sourceH=source.height||source.naturalHeight;
+    const max=2400,scale=Math.min(max/Math.max(sourceW,sourceH),4);
+    const w=Math.max(1,Math.round(sourceW*scale)),h=Math.max(1,Math.round(sourceH*scale));
+    const c=document.createElement('canvas');c.width=w;c.height=h;
+    const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);
+    const data=ctx.getImageData(0,0,w,h),d=data.data;
+    for(let i=0;i<d.length;i+=4){
+      const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const contrast=Math.max(0,Math.min(255,(gray-128)*1.8+128));
+      d[i]=d[i+1]=d[i+2]=contrast;
+    }
+    ctx.putImageData(data,0,0);
+    c.toBlob(b=>b?resolve(b):reject(new Error('Image processing failed')),'image/png',1);
+  });
+}
 async function runCardOCR(image){
-  const configs=[
-    {psm:6,name:'standard'},
-    {psm:11,name:'sparse'}
-  ];
+  const configs=[{psm:6},{psm:11}];
   let best={text:'',score:-1};
   for(const cfg of configs){
     const r=await Tesseract.recognize(image,'eng',{
-      logger:m=>{
-        if(m.status==='recognizing text')document.getElementById('status').textContent='Reading card… '+Math.round(m.progress*100)+'%';
-      },
+      logger:m=>{if(m.status==='recognizing text')document.getElementById('status').textContent='Reading card… '+Math.round(m.progress*100)+'%'},
       tessedit_pageseg_mode:cfg.psm
     });
     const text=(r.data.text||'').replace(/[\t ]+/g,' ').replace(/\n{3,}/g,'\n').trim();
@@ -84,10 +108,12 @@ async function runCardOCR(image){
 }
 function scoreOCR(text){
   if(!text)return 0;
-  const phones=(text.match(/\d[\d\s().+-]{7,}\d/g)||[]).length;
+  const phoneMatches=text.match(/(?:\+?\d[\d\s().-]{7,}\d)/g)||[];
+  const phones=phoneMatches.filter(x=>(x.match(/\d/g)||[]).length>=8).length;
   const words=(text.match(/[A-Za-z]{3,}/g)||[]).length;
   const digits=(text.match(/\d/g)||[]).length;
-  return phones*20+Math.min(words,40)+Math.min(digits,20);
+  const businessWords=(text.match(/ram|piece|centre|center|gold|jewell|merchant|mobile|phone|avenue|road|market|gstin/gi)||[]).length;
+  return phones*40+businessWords*12+Math.min(words,50)+Math.min(digits,25);
 }
 function parseOCR(){const t=document.getElementById('ocrText').value,lines=t.split(/\n/).map(x=>x.trim()).filter(Boolean),phone=t.match(/(?:\+?\d[\d\s().-]{7,}\d)/),email=t.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);lead={name:lines[0]||'',company:lines[1]||'',designation:'',mobile:phone?phone[0].trim():'',email:email?email[0]:'',city:''};if(!lead.name&&!lead.company)return alert('Please scan a card or use manual entry.');fillLead();show('lead')}
 function fromManual(){lead={name:m_name.value,company:m_company.value,designation:m_designation.value,mobile:m_mobile.value,email:m_email.value,city:m_city.value};fillLead();show('lead')}
