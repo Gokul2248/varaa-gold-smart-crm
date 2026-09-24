@@ -32,16 +32,7 @@ async function handleLeads(request, env) {
         body: JSON.stringify(body)
       });
 
-      const text = await response.text();
-      let data;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { ok: response.ok, raw: text };
-      }
-
-      return Response.json(data, { status: response.ok ? 200 : 502 });
+      return normalizeUpstreamResponse(response, "Google Apps Script");
     } catch (error) {
       return Response.json(
         { error: error instanceof Error ? error.message : String(error) },
@@ -60,16 +51,7 @@ async function handleLeads(request, env) {
         scriptUrl + "?action=list&secret=" + encodeURIComponent(secret)
       );
 
-      const text = await response.text();
-      let data;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { ok: response.ok, raw: text };
-      }
-
-      return Response.json(data, { status: response.ok ? 200 : 502 });
+      return normalizeUpstreamResponse(response, "Google Apps Script");
     } catch (error) {
       return Response.json(
         { error: error instanceof Error ? error.message : String(error) },
@@ -79,4 +61,62 @@ async function handleLeads(request, env) {
   }
 
   return Response.json({ error: "Method not allowed" }, { status: 405 });
+}
+
+async function normalizeUpstreamResponse(response, serviceName) {
+  const text = await response.text();
+  let data = null;
+
+  try {
+    data = JSON.parse(text);
+  } catch {
+    // The upstream should return JSON. Keep the raw body out of the response
+    // because it may contain HTML, account information, or other sensitive data.
+  }
+
+  if (!response.ok) {
+    console.error(serviceName + " returned a non-2xx response", {
+      status: response.status,
+      contentType: response.headers.get("content-type")
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const looksLikeHtml =
+      contentType.includes("text/html") ||
+      /<html|sign in|accounts\.google\.com/i.test(text);
+
+    return Response.json(
+      {
+        error: looksLikeHtml
+          ? serviceName + " is not publicly accessible. Check the Web App access setting."
+          : serviceName + " returned HTTP " + response.status + "."
+      },
+      { status: 502 }
+    );
+  }
+
+  if (!data) {
+    console.error(serviceName + " returned a non-JSON response", {
+      status: response.status,
+      contentType: response.headers.get("content-type")
+    });
+
+    return Response.json(
+      { error: serviceName + " returned a non-JSON response. Check the Web App deployment." },
+      { status: 502 }
+    );
+  }
+
+  if (data.ok === false) {
+    console.error(serviceName + " rejected the request", {
+      error: data.error || "Unknown upstream error"
+    });
+
+    return Response.json(
+      { error: data.error || serviceName + " rejected the request." },
+      { status: 502 }
+    );
+  }
+
+  return Response.json(data, { status: 200 });
 }
