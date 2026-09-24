@@ -42,7 +42,7 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents || '{}');
     if (!validSecret(data.secret)) return json({ error: 'Unauthorized' });
-    if (!data.mobile || !data.shopName || !data.cardImage) return json({ error: 'Mobile, shop name and card image are required.' });
+    if (!data.mobile || !data.shopName) return json({ error: 'Mobile and shop name are required.' });
     const sh = getSheet(), rows = sh.getDataRange().getValues();
     const normalizedMobile = normalizeMobile(data.mobile), normalizedShop = normalizeShop(data.shopName);
     let existing = false;
@@ -52,10 +52,10 @@ function doPost(e) {
     }
     const now = new Date();
     const recordId = 'VG-' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss') + '-' + Math.floor(Math.random()*1000);
-    const file = saveCardImage(getFolder(), data.cardImage, recordId, data.shopName);
+    const file = data.cardImage ? saveCardImage(getFolder(), data.cardImage, recordId, data.shopName) : null;
     const customerType = existing ? 'Existing Customer' : 'New Customer';
-    sh.appendRow([now, recordId, String(data.mobile).trim(), String(data.shopName).trim(), customerType, (data.interests || []).join(', '), String(data.notes || ''), String(data.priority || 'Follow-up'), String(data.followup || 'Today'), String(data.source || 'GJIIE Chennai • Stall E36'), file.getUrl()]);
-    return json({ ok:true, recordId, existingCustomer:existing, cardFileUrl:file.getUrl() });
+    sh.appendRow([now, recordId, String(data.mobile).trim(), String(data.shopName).trim(), customerType, (data.interests || []).join(', '), String(data.notes || ''), String(data.priority || 'Follow-up'), String(data.followup || 'Today'), String(data.source || 'GJIIE Chennai • Stall E36'), file ? file.getUrl() : '']);
+    return json({ ok:true, recordId, existingCustomer:existing, cardFileUrl:file ? file.getUrl() : '' });
   } catch (err) { return json({ error: err.message || 'Save failed.' }); }
 }
 
