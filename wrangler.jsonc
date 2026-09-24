@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developers.cloudflare.com/workers/wrangler/config-schema.json",
+  "name": "varaa-gold-smart-crm",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-24",
+  "keep_vars": true,
+  "assets": {
+    "directory": "./public",
+    "run_worker_first": ["/api/*"]
+  },
+  "preview_urls": true
+}
