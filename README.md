@@ -1,21 +1,30 @@
-# Varaa Gold Smart CRM
+# Varaa Gold Smart Visitor CRM
 
-A mobile-first visitor CRM for Varaa Gold exhibitions and jewellery sales teams.
+Mobile-first exhibition lead capture for Varaa Gold.
 
-## Architecture
+## Current exhibition flow
 
-- **Frontend:** Static HTML/CSS/JavaScript in `public/index.html`
-- **Hosting/runtime:** Cloudflare Workers with Static Assets
-- **API:** `/api/leads` handled by `worker.js`
-- **Cloud storage:** Google Apps Script → Google Sheet + Google Drive
-- **OCR:** Tesseract.js in the browser
-- **Admin dashboard:** Password protected through the Cloudflare Worker
+This version intentionally **does not run OCR or parse visiting cards during capture**.
 
-## Cloudflare configuration
+1. **Take Photo** opens the phone camera.
+2. **Choose Photo** opens the phone photo album.
+3. The original card image is retained and sent to Google Drive.
+4. Staff enters only **mobile/WhatsApp number** and **shop/company name**.
+5. Staff selects collection interests, notes, priority and follow-up.
+6. Backend generates a unique **Record ID / Index**.
+7. Google Sheet stores the index, mobile, shop name, preferences and Drive image URL.
+8. Existing-customer matching uses normalized mobile number or shop name.
+9. Card details can be extracted later from the stored image without slowing down the exhibition capture.
 
-The repository contains `wrangler.jsonc` so Cloudflare can deploy the application as a full-stack Worker with static assets.
+## Cloudflare architecture
 
-Required production secrets/variables:
+- Frontend: `public/index.html`
+- Runtime/API: Cloudflare Worker in `worker.js`
+- Static assets: Cloudflare Workers Static Assets
+- Storage bridge: Google Apps Script → Google Sheet + Google Drive
+- Configuration: `wrangler.jsonc`
+
+Required Worker secrets/variables:
 
 ```text
 GOOGLE_APPS_SCRIPT_URL
@@ -23,42 +32,24 @@ GOOGLE_APPS_SCRIPT_SECRET
 ADMIN_PASSWORD
 ```
 
-Configure these in the Cloudflare Worker under **Settings → Variables and Secrets**. Do not commit their values to GitHub.
+Do not commit secret values to GitHub.
 
-## Google Apps Script setup
+## Google Apps Script
 
-1. Open Google Apps Script.
-2. Copy `google-apps-script.gs` into the project.
-3. Set the `SECRET` constant to a long random value.
-4. Run `setup()` once and authorize the Google account.
-5. Deploy the script as a Web app.
-6. Execute as the script owner.
-7. Allow anonymous/public access if required by the account so Cloudflare can call the endpoint.
-8. Copy the generated `/exec` URL into `GOOGLE_APPS_SCRIPT_URL`.
-9. Put the same secret value into `GOOGLE_APPS_SCRIPT_SECRET`.
+Copy `google-apps-script.gs` into Google Apps Script.
 
-The Google account that authorizes `setup()` owns the created Sheet and Drive folder.
+Set Script Properties:
+
+- `CRM_SECRET` = a long random secret
+- The same value must be used as Cloudflare `GOOGLE_APPS_SCRIPT_SECRET`
+
+Run `setup()` once. It creates the Sheet and Drive folder.
+
+Deploy the Apps Script as a Web App:
+
+- Execute as: **Me**
+- Who has access: **Anyone**
 
 ## Deployment
 
-Connect this GitHub repository to Cloudflare Workers Builds and deploy the `main` branch. The `wrangler.jsonc` file is the source configuration for the Worker and static assets.
-
-Every commit to the configured production branch can trigger a new deployment.
-
-Cloudflare build pipeline check: GitHub integration is configured for the `main` branch.
-
-## Local structure
-
-```text
-/
-├── public/
-│   └── index.html
-├── worker.js
-├── wrangler.jsonc
-├── google-apps-script.gs
-├── .gitignore
-└── README.md
-```
-
-
-Admin password rotation deployment check.
+Connect the repository to Cloudflare Workers and deploy the `main` branch using `wrangler.jsonc`.
