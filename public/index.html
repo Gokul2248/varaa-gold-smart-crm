@@ -51,28 +51,59 @@ function loadImage(file){
   });
 }
 function detectCardRegion(img){
-  const max=1400,scale=Math.min(1,max/Math.max(img.width,img.height));
+  const max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
   const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
   const c=document.createElement('canvas');c.width=w;c.height=h;
   const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,w,h);
   const data=ctx.getImageData(0,0,w,h).data;
-  let minX=w,minY=h,maxX=-1,maxY=-1,count=0;
-  for(let y=0;y<h;y+=2){
-    for(let x=0;x<w;x+=2){
-      const i=(y*w+x)*4,r=data[i],g=data[i+1],b=data[i+2];
-      const yellow=(r>125&&g>105&&b<145&&r>b*1.22&&g>b*1.12);
-      if(yellow){minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);count++;}
+  const step=3,sw=Math.ceil(w/step),sh=Math.ceil(h/step);
+  const mask=new Uint8Array(sw*sh);
+  for(let yy=0;yy<sh;yy++){
+    const y=Math.min(h-1,yy*step);
+    for(let xx=0;xx<sw;xx++){
+      const x=Math.min(w-1,xx*step),i=(y*w+x)*4;
+      const r=data[i]/255,g=data[i+1]/255,b=data[i+2]/255;
+      const mx=Math.max(r,g,b),mn=Math.min(r,g,b),sat=mx-mn,lum=.299*r+.587*g+.114*b;
+      const yellow=r>.45&&g>.38&&b<.42&&r>b*1.35&&g>b*1.2;
+      const colored=sat>.18&&(lum<.78||yellow);
+      const darkBlue=lum<.48&&sat>.08;
+      if(colored||darkBlue)mask[yy*sw+xx]=1;
     }
   }
-  if(count<Math.max(40,w*h*0.0008)||maxX<0)return null;
-  const bw=maxX-minX+1,bh=maxY-minY+1;
-  const area=bw*bh/(w*h);
-  if(area<0.01||area>0.65)return null;
-  const padX=Math.round(bw*0.10),padY=Math.round(bh*0.18);
-  const sx=Math.max(0,minX-padX),sy=Math.max(0,minY-padY);
-  const ex=Math.min(w,maxX+padX+1),ey=Math.min(h,maxY+padY+1);
-  const out=document.createElement('canvas');out.width=ex-sx;out.height=ey-sy;
-  out.getContext('2d').drawImage(c,sx,sy,out.width,out.height,0,0,out.width,out.height);
+  const seen=new Uint8Array(mask.length),components=[];
+  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){
+    const idx=y*sw+x;if(!mask[idx]||seen[idx])continue;
+    const q=[idx];seen[idx]=1;let head=0,count=0,minX=x,maxX=x,minY=y,maxY=y;
+    while(head<q.length){
+      const p=q[head++],py=Math.floor(p/sw),px=p-py*sw;count++;
+      if(px<minX)minX=px;if(px>maxX)maxX=px;if(py<minY)minY=py;if(py>maxY)maxY=py;
+      const ns=[p-1,p+1,p-sw,p+sw];
+      for(const n of ns){
+        if(n<0||n>=mask.length||seen[n]||!mask[n])continue;
+        const ny=Math.floor(n/sw),nx=n-ny*sw;
+        if(Math.abs(nx-px)>1||Math.abs(ny-py)>1)continue;
+        seen[n]=1;q.push(n);
+      }
+    }
+    const bw=maxX-minX+1,bh=maxY-minY+1,area=(bw*bh)/(sw*sh),aspect=bw/bh;
+    if(count>80&&area>.012&&area<.7&&aspect>.65&&aspect<2.8){
+      components.push({count,area,aspect,minX,maxX,minY,maxY});
+    }
+  }
+  components.sort((a,b)=>{
+    const shapeA=1-Math.min(1,Math.abs(Math.log(a.aspect/1.65))/1.2);
+    const shapeB=1-Math.min(1,Math.abs(Math.log(b.aspect/1.65))/1.2);
+    return (b.count*b.shapeA||0)-(a.count*a.shapeB||0);
+  });
+  if(!components.length)return null;
+  const best=components[0];
+  const bw=best.maxX-best.minX+1,bh=best.maxY-best.minY+1;
+  const padX=Math.round(bw*.06),padY=Math.round(bh*.08);
+  const sx=Math.max(0,best.minX-padX),sy=Math.max(0,best.minY-padY);
+  const ex=Math.min(sw,best.maxX+padX+1),ey=Math.min(sh,best.maxY+padY+1);
+  const out=document.createElement('canvas');
+  out.width=(ex-sx)*step;out.height=(ey-sy)*step;
+  out.getContext('2d').drawImage(c,sx*step,sy*step,out.width,out.height,0,0,out.width,out.height);
   return out;
 }
 function preprocessCard(source){
