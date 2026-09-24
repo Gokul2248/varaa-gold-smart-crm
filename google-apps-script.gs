@@ -33,7 +33,19 @@ function doGet(e) {
   const leads = values.slice(1).map(row => {
     const o = {}; headers.forEach((h,i) => o[h] = row[i]);
     const interests = o.Interests ? String(o.Interests).split(',').map(x=>x.trim()).filter(Boolean) : [];
-    return { timestamp:o.Timestamp, recordId:o['Record ID'], mobile:o.Mobile, shopName:o['Shop Name'], customerType:o['Customer Type'], interests, notes:o.Notes, priority:o.Priority, followup:o['Follow-up'], source:o.Source, cardFileUrl:o['Card File URL'] };
+    return {
+      timestamp:o.Timestamp,
+      recordId:o['Record ID'],
+      mobile:o.Mobile,
+      shopName:o['Shop Name'],
+      customerType:o['Customer Type'],
+      interests,
+      notes:o.Notes,
+      priority:o.Priority,
+      followup:o['Follow-up'],
+      source:o.Source,
+      cardFileUrl:o['Card File URL']
+    };
   });
   return json({ leads });
 }
@@ -42,21 +54,90 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents || '{}');
     if (!validSecret(data.secret)) return json({ error: 'Unauthorized' });
+
+    if (data.action === 'delete') {
+      return deleteLead(data.recordId);
+    }
+
     if (!data.mobile || !data.shopName) return json({ error: 'Mobile and shop name are required.' });
+
     const sh = getSheet(), rows = sh.getDataRange().getValues();
     const normalizedMobile = normalizeMobile(data.mobile), normalizedShop = normalizeShop(data.shopName);
     let existing = false;
+
     for (let i=1;i<rows.length;i++) {
       const rowMobile = normalizeMobile(rows[i][2]), rowShop = normalizeShop(rows[i][3]);
-      if ((normalizedMobile && rowMobile && normalizedMobile === rowMobile) || (normalizedShop && rowShop && normalizedShop === rowShop)) { existing = true; break; }
+      if ((normalizedMobile && rowMobile && normalizedMobile === rowMobile) ||
+          (normalizedShop && rowShop && normalizedShop === rowShop)) {
+        existing = true;
+        break;
+      }
     }
+
     const now = new Date();
     const recordId = 'VG-' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss') + '-' + Math.floor(Math.random()*1000);
     const file = data.cardImage ? saveCardImage(getFolder(), data.cardImage, recordId, data.shopName) : null;
     const customerType = existing ? 'Existing Customer' : 'New Customer';
-    sh.appendRow([now, recordId, String(data.mobile).trim(), String(data.shopName).trim(), customerType, (data.interests || []).join(', '), String(data.notes || ''), String(data.priority || 'Follow-up'), String(data.followup || 'Today'), String(data.source || 'GJIIE Chennai • Stall E36'), file ? file.getUrl() : '']);
-    return json({ ok:true, recordId, existingCustomer:existing, cardFileUrl:file ? file.getUrl() : '' });
-  } catch (err) { return json({ error: err.message || 'Save failed.' }); }
+
+    sh.appendRow([
+      now,
+      recordId,
+      String(data.mobile).trim(),
+      String(data.shopName).trim(),
+      customerType,
+      (data.interests || []).join(', '),
+      String(data.notes || ''),
+      String(data.priority || 'Follow-up'),
+      String(data.followup || 'Today'),
+      String(data.source || 'GJIIE Chennai • Stall E36'),
+      file ? file.getUrl() : ''
+    ]);
+
+    return json({
+      ok:true,
+      recordId,
+      existingCustomer:existing,
+      cardFileUrl:file ? file.getUrl() : '',
+      shopName:String(data.shopName).trim()
+    });
+  } catch (err) {
+    return json({ error: err.message || 'Save failed.' });
+  }
+}
+
+function deleteLead(recordId) {
+  if (!recordId) return json({ error: 'Record ID is required.' });
+
+  const sh = getSheet();
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return json({ error: 'Lead not found.' });
+
+  const headers = values[0];
+  const recordIndex = headers.indexOf('Record ID');
+  const cardIndex = headers.indexOf('Card File URL');
+  if (recordIndex < 0) return json({ error: 'Record ID column is missing.' });
+
+  for (let i = values.length - 1; i >= 1; i--) {
+    if (String(values[i][recordIndex]) === String(recordId)) {
+      const cardUrl = cardIndex >= 0 ? String(values[i][cardIndex] || '') : '';
+      if (cardUrl) {
+        const fileId = extractDriveFileId(cardUrl);
+        if (fileId) {
+          try { DriveApp.getFileById(fileId).setTrashed(true); } catch (e) {}
+        }
+      }
+      sh.deleteRow(i + 1);
+      return json({ ok:true, deletedRecordId:recordId });
+    }
+  }
+
+  return json({ error: 'Lead not found.' });
+}
+
+function extractDriveFileId(url) {
+  const s = String(url || '');
+  const m = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : '';
 }
 
 function saveCardImage(folder, dataUrl, recordId, shopName) {
@@ -67,6 +148,7 @@ function saveCardImage(folder, dataUrl, recordId, shopName) {
   const safeShop = String(shopName).replace(/[^a-z0-9_-]+/gi,'_').slice(0,50);
   return folder.createFile(Utilities.newBlob(bytes, mime, recordId + '_' + safeShop + '.' + ext));
 }
+
 function getSheet(){ return SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty(PROP_SHEET_ID)).getSheetByName(SHEET_NAME); }
 function getFolder(){ return DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty(PROP_FOLDER_ID)); }
 function validSecret(v){ return !!v && v === PropertiesService.getScriptProperties().getProperty(PROP_SECRET); }
