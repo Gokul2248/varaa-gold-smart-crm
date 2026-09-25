@@ -26,7 +26,7 @@ async function handleLeads(request, env) {
       const body = await request.json();
       body.secret = secret;
 
-      const response = await fetch(scriptUrl, {
+      const response = await fetchWithRetry(scriptUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
@@ -47,8 +47,9 @@ async function handleLeads(request, env) {
     }
 
     try {
-      const response = await fetch(
-        scriptUrl + "?action=list&secret=" + encodeURIComponent(secret)
+      const response = await fetchWithRetry(
+        scriptUrl + "?action=list&secret=" + encodeURIComponent(secret),
+        { method: "GET" }
       );
 
       return normalizeUpstreamResponse(response, "Google Apps Script");
@@ -119,4 +120,25 @@ async function normalizeUpstreamResponse(response, serviceName) {
   }
 
   return Response.json(data, { status: 200 });
+}
+
+
+async function fetchWithRetry(url, options) {
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if (response.ok || attempt === 1) return response;
+      lastError = new Error("Upstream HTTP " + response.status);
+    } catch (error) {
+      clearTimeout(timer);
+      lastError = error;
+      if (attempt === 1) throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw lastError || new Error("Upstream request failed");
 }
