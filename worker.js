@@ -119,7 +119,7 @@ async function normalizeUpstreamResponse(response, serviceName) {
     );
   }
 
-  return Response.json(data, { status: 200 });
+  return new Response(JSON.stringify(data), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store, no-cache, must-revalidate" } });
 }
 
 
