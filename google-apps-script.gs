@@ -52,6 +52,8 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
   try {
     const data = JSON.parse(e.postData.contents || '{}');
     if (!validSecret(data.secret)) return json({ error: 'Unauthorized' });
@@ -61,6 +63,12 @@ function doPost(e) {
     }
 
     if (!data.mobile || !data.shopName) return json({ error: 'Mobile and shop name are required.' });
+
+    const requestId = String(data.requestId || '').trim();
+    if (requestId) {
+      const cached = CacheService.getScriptCache().get('save:' + requestId);
+      if (cached) return json(JSON.parse(cached));
+    }
 
     const sh = getSheet();
     ensurePlaceColumn(sh);
@@ -97,15 +105,19 @@ function doPost(e) {
       file ? file.getUrl() : ''
     ]);
 
-    return json({
+    const result = {
       ok:true,
       recordId,
       existingCustomer:existing,
       cardFileUrl:file ? file.getUrl() : '',
       shopName:String(data.shopName).trim()
-    });
+    };
+    if (requestId) CacheService.getScriptCache().put('save:' + requestId, JSON.stringify(result), 21600);
+    return json(result);
   } catch (err) {
     return json({ error: err.message || 'Save failed.' });
+  } finally {
+    lock.releaseLock();
   }
 }
 
