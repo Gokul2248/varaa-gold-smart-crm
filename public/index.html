@@ -13,7 +13,7 @@
 </main></body>
 <script>
 let saveInProgress=false,adminInProgress=false;
-const interestList=['Temple','Antique','Bridal','Haram','Necklace','Jhumki','Bangles','New Launches'];let selected=new Set(),customerType='New Customer',lastCard=null,entryMode='scan';
+const interestList=['Temple','Antique','Bridal','Haram','Necklace','Jhumki','Bangles','New Launches','Yellow Haaram','18 Carat Items'];let selected=new Set(),customerType='New Customer',lastCard=null,entryMode='scan';
 function show(id){['home','capture','manual','lead','saved','admin'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));scrollTo(0,0)}
 function goHome(){show('home')}
 function render(){interests.innerHTML=interestList.map(n=>'<button class="choice '+(selected.has(n)?'selected':'')+'" onclick="toggle(\''+n+'\')">✨ <strong>'+n+'</strong><span class="small">Tap to select</span></button>').join('')}function toggle(n){selected.has(n)?selected.delete(n):selected.add(n);render()}render();
