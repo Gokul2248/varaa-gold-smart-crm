@@ -30,7 +30,7 @@ async function handleLeads(request, env) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
-      });
+      }, { maxAttempts: 1, timeoutMs: 45000 });
 
       return normalizeUpstreamResponse(response, "Google Apps Script");
     } catch (error) {
@@ -49,7 +49,7 @@ async function handleLeads(request, env) {
     try {
       const response = await fetchWithRetry(
         scriptUrl + "?action=list&secret=" + encodeURIComponent(secret),
-        { method: "GET" }
+        { method: "GET" }, { maxAttempts: 2, timeoutMs: 45000 }
       );
 
       return normalizeUpstreamResponse(response, "Google Apps Script");
@@ -123,20 +123,22 @@ async function normalizeUpstreamResponse(response, serviceName) {
 }
 
 
-async function fetchWithRetry(url, options) {
+async function fetchWithRetry(url, options, config = {}) {
+  const maxAttempts = config.maxAttempts || 1;
+  const timeoutMs = config.timeoutMs || 45000;
   let lastError;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timer);
-      if (response.ok || attempt === 1) return response;
+      if (response.ok || attempt === maxAttempts - 1) return response;
       lastError = new Error("Upstream HTTP " + response.status);
     } catch (error) {
       clearTimeout(timer);
       lastError = error;
-      if (attempt === 1) throw error;
+      if (attempt === maxAttempts - 1) throw error;
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
